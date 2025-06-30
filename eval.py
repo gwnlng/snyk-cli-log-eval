@@ -86,7 +86,7 @@ def eval_manifests(complete, partial, manifest_files) -> dict:
             skipped_manifests.append(manifest_files[complete_idx])
 
     error_indicator = True if skipped_manifests else False
-    error_message = f"{len(skipped_manifests)}/{len(complete)} manifests encountered error at dependency resolution"
+    error_message = f"{len(skipped_manifests)}/{len(complete)} manifests encountered error at dependency resolution" if error_indicator else ""
     manifest_measurements = {
         "scanned_manifests": scanned_manifests,
         "skipped_manifests": skipped_manifests,
