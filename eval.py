@@ -103,6 +103,7 @@ def deduplicate_multi_project_manifest(package_managers) -> list:
     If the first element appears elsewhere in the list, those subsequent occurrences are removed.
     The rest of the list remains unchanged.
     :param package_managers: package managers (list)
+    :return: deduplicated package managers (list)
     """
     if not package_managers:
         return []
