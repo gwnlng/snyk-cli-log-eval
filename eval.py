@@ -1,5 +1,6 @@
 import sys
 import json
+from collections import OrderedDict
 
 
 def get_trailing_string_find(line: str, substring: str) -> str:
@@ -96,6 +97,50 @@ def eval_manifests(complete, partial, manifest_files) -> dict:
     return manifest_measurements
 
 
+def deduplicate_multi_project_manifest(package_managers) -> list:
+    """
+    Deduplicates only first occurring matching element on list i.e. multi-project package manager e.g. Gradle.
+    If the first element appears elsewhere in the list, those subsequent occurrences are removed.
+    The rest of the list remains unchanged.
+    :param package_managers: package managers (list)
+    """
+    if not package_managers:
+        return []
+
+    # Step 1: Find the first element that is duplicated
+    # iterate and see whether gradle is used
+    seen_elements = set()
+    first_multi_project_pm = None
+    gradle_pm = "gradle"
+
+    for item in package_managers:
+        if item in seen_elements and item == gradle_pm:
+            first_multi_project_pm = item
+            break  # Found the target, stop searching
+        seen_elements.add(item)
+
+    # If no element was duplicated, return the original list
+    if first_multi_project_pm is None:
+        return list(package_managers) # Return a copy to be safe
+
+    # Step 2: Build the new list, deduplicating only the identified element
+    deduplicated_list = []
+    # Flag to ensure we keep only the first occurrence of the target element
+    kept_first_occurrence_of_pm = False
+
+    for item in package_managers:
+        if item == first_multi_project_pm:
+            if not kept_first_occurrence_of_pm:
+                # Keep the very first occurrence of the identified duplicated element
+                deduplicated_list.append(item)
+                kept_first_occurrence_of_pm = True
+        else:
+            # For all other elements, just append them as they are
+            deduplicated_list.append(item)
+
+    return deduplicated_list
+
+
 def eval_manifests_metadata(metadata_json: dict):
     """
     Evaluates scan manifests metadata.
@@ -107,11 +152,21 @@ def eval_manifests_metadata(metadata_json: dict):
     package_managers = all_projects_package_managers.strip("[]").split()
     all_projects_target_files = metadata_json['legacycli::metadata__allProjects__targetFiles']
     target_files = all_projects_target_files.strip("[]").split()
+    scanned_projects = metadata_json['legacycli::metadata__allProjects__scannedProjects']
+    multi_project_build = True if scanned_projects > len(target_files) else False
 
     # compute measurements of cli processed manifests files (paths)
     metadata_package_manager = metadata_json['legacycli::metadata__packageManager']
     scanned_package_managers = metadata_package_manager.strip("[]").split()
-    manifest_measurements = eval_manifests(package_managers, scanned_package_managers, target_files)
+    if not multi_project_build:
+        manifest_measurements = eval_manifests(package_managers, scanned_package_managers, target_files)
+    else:
+        # certain configurations to snyk gradle plugin return only the root build.gradle in the targetFiles property
+        # yet scanned package managers indicate multiple occurrences of gradle build manifests
+        # so deduplicate first multi-project package manager type on the list. This is not foolproof
+        dedup_scanned_package_managers = deduplicate_multi_project_manifest(scanned_package_managers)
+        manifest_measurements = eval_manifests(package_managers, dedup_scanned_package_managers, target_files)
+
     # print(manifest_measurements)
     return manifest_measurements
 
