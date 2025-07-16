@@ -1,6 +1,5 @@
 import sys
 import json
-from collections import OrderedDict
 
 
 def get_trailing_string_find(line: str, substring: str) -> str:
@@ -42,6 +41,11 @@ def extract_metadata_by_prefix(prefix: str) -> dict:
                 if analytics_metadata.endswith("***"):
                     invalid_metadata = True
                     analytics_metadata = analytics_metadata + '"}}}}}'
+
+                # handle non-sensitive sanitized substring containing ****
+                if "****" in analytics_metadata:
+                    analytics_metadata = analytics_metadata.replace("****", "data")
+
                 metadata_json = json.loads(analytics_metadata)
                 # print(f"json: {metadata_json}")
             except json.JSONDecodeError as e:
