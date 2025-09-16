@@ -26,7 +26,10 @@ def extract_metadata_by_prefix(prefix: str) -> dict:
     :return: json
     """
     duration_ms_prefix = '"durationMs": '
+    scanned_projects_prefix = '"scannedProjects": '
+    scanned_projects_json_property = "legacycli::metadata__allProjects__scannedProjects"
     duration_ms = 0
+    scanned_projects = 0
     invalid_metadata = False
     metadata_json = {}
     analytics_metadata = ""
@@ -57,12 +60,22 @@ def extract_metadata_by_prefix(prefix: str) -> dict:
             raw_duration_ms = get_trailing_string_find(line.strip(), duration_ms_prefix)
             # remove the trailing comma
             duration_ms = int(raw_duration_ms[:-1])
+        elif scanned_projects_prefix in line.strip():
+            # handle potential Snyk CLI 1.1297.3 invalid metadata analytics json with scannedProjects property matching
+            raw_scanned_projects = get_trailing_string_find(line.strip(), scanned_projects_prefix)
+            # remove the trailing comma
+            scanned_projects = int(raw_scanned_projects[:-1])
 
     # remove following if-check once Snyk CLI returns valid metadata analytics JSON
     if invalid_metadata:
         # insert the duration_ms property into the metadata json
         runtime_perf_duration = {"runtime": {"performance": {"duration_ms": duration_ms}}}
         metadata_json["data"]["attributes"].update(runtime_perf_duration)
+        # insert the scannedProjects property into the metadata json
+
+    if scanned_projects_json_property not in metadata_json["data"]["attributes"]["interaction"]["extension"]:
+        all_scanned_projects = {scanned_projects_json_property: scanned_projects}
+        metadata_json["data"]["attributes"]["interaction"]["extension"].update(all_scanned_projects)
 
     return metadata_json
 
