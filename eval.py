@@ -171,6 +171,8 @@ def eval_manifests_metadata(metadata_json: dict):
     all_projects_target_files = metadata_json['legacycli::metadata__allProjects__targetFiles']
     target_files = all_projects_target_files.strip("[]").split()
     scanned_projects = metadata_json['legacycli::metadata__allProjects__scannedProjects']
+    scanned_projects = int(scanned_projects) if int(scanned_projects) > 0 else len(target_files)
+    # determine whether it is a multi-project build by comparing scanned projects vs target files
     multi_project_build = True if scanned_projects > len(target_files) else False
 
     # compute measurements of cli processed manifests files (paths)
