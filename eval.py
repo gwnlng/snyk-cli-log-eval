@@ -1,32 +1,17 @@
 import sys
 import json
+import re
 
 
-def get_trailing_string_find(line: str, substring: str) -> str:
+def extract_metadata_by_prefix(pattern: str) -> dict:
     """
-    Returns trailing string of line after first occurrence of the substring
-    Returns empty string if not found.
-    :param line: Line
-    :param substring: Substring
-    :return: trailing string if found, empty string otherwise
-    """
-    start_index = line.find(substring)
-    if start_index != -1:  # Check if the substring was found
-        # Slice from the character right after the substring
-        return line[start_index + len(substring):]
-    else:
-        return ""  # Substring not found
-
-
-def extract_metadata_by_prefix(prefix: str) -> dict:
-    """
-    Reads lines from standard input and extract first occurring line that contains a specified prefix.
+    Reads lines from standard input and extract first occurring line that matches a specified regex pattern.
     It then slices off prefix, extracting trailing string as a metadata JSON
-    :param prefix: prefix string
+    :param pattern: regex pattern string
     :return: json
     """
-    duration_ms_prefix = '"durationMs": '
-    scanned_projects_prefix = '"scannedProjects": '
+    duration_ms_prefix = '\"durationMs\": '
+    scanned_projects_prefix = '\"scannedProjects\": '
     scanned_projects_json_property = "legacycli::metadata__allProjects__scannedProjects"
     duration_ms = 0
     scanned_projects = 0
@@ -37,9 +22,11 @@ def extract_metadata_by_prefix(prefix: str) -> dict:
     for line in sys.stdin:
         # .strip() removes leading/trailing whitespace, including newline characters,
         # ensuring a clean match against the prefix.
-        if prefix in line.strip():
+        line = line.strip()
+        match = re.search(pattern, line)
+        if match:
             try:
-                analytics_metadata = get_trailing_string_find(line.strip(), prefix)
+                analytics_metadata = line[match.end():]
                 # snyk version 1.1297.3 returns invalid json ending with branch=***
                 if analytics_metadata.endswith("***"):
                     invalid_metadata = True
@@ -55,14 +42,16 @@ def extract_metadata_by_prefix(prefix: str) -> dict:
                 print(f"Error at decoding analytics metadata line: {analytics_metadata} at position: {e.pos}")
             # exit the stdin filtering
             break
-        elif duration_ms_prefix in line.strip():
+        elif duration_ms_prefix in line:
             # handle potential Snyk CLI 1.1297.3 invalid metadata analytics json with durationMs property matching
-            raw_duration_ms = get_trailing_string_find(line.strip(), duration_ms_prefix)
+            duration_match = re.search(duration_ms_prefix, line)
+            raw_duration_ms = line[duration_match.end():] if duration_match else "0"
             # remove the trailing comma
             duration_ms = int(raw_duration_ms[:-1])
-        elif scanned_projects_prefix in line.strip():
+        elif scanned_projects_prefix in line:
             # handle potential Snyk CLI 1.1297.3 invalid metadata analytics json with scannedProjects property matching
-            raw_scanned_projects = get_trailing_string_find(line.strip(), scanned_projects_prefix)
+            scanned_projects_match = re.search(scanned_projects_prefix, line)
+            raw_scanned_projects = line[scanned_projects_match.end():] if scanned_projects_match else "0"
             # remove the trailing comma
             scanned_projects = int(raw_scanned_projects[:-1])
 
@@ -73,7 +62,9 @@ def extract_metadata_by_prefix(prefix: str) -> dict:
         metadata_json["data"]["attributes"].update(runtime_perf_duration)
         # insert the scannedProjects property into the metadata json
 
-    if scanned_projects_json_property not in metadata_json["data"]["attributes"]["interaction"]["extension"]:
+    metadata_extension = metadata_json.get('data', {}).get('attributes', {}).get('interaction', {}).get('extension', {})
+    if scanned_projects_json_property not in metadata_extension:
+    # if scanned_projects_json_property not in metadata_json["data"]["attributes"]["interaction"]["extension"]:
         all_scanned_projects = {scanned_projects_json_property: scanned_projects}
         metadata_json["data"]["attributes"]["interaction"]["extension"].update(all_scanned_projects)
 
@@ -252,7 +243,7 @@ def eval_cli_metadata(metadata_json) -> dict:
 
 
 if __name__ == "__main__":
-    analytics_prefix = "analytics.report:2 - [0] Data: "
+    analytics_prefix = r"analytics\.report:\d+ - \[0\] Data: "
     metadata = extract_metadata_by_prefix(analytics_prefix)
     if metadata:
         metadata_summary = eval_cli_metadata(metadata)
