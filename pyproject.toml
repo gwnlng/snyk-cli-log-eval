@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "snyk-cli-log-eval"
+version = "0.1.0"
+description = "Snyk CLI debug log evaluation tool that outputs a result summary of the scan metadata analysis"
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+license = "LICENSE"
+
+[tool.poetry.dependencies]
+python = "^3.13"
+pandas = "0.15.0"
+
+[tool.poetry.group.dev.dependencies]
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

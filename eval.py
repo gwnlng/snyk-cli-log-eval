@@ -1,6 +1,7 @@
 import sys
 import json
 import re
+import pandas as pd
 
 
 def extract_metadata_by_prefix(pattern: str) -> dict:
@@ -200,6 +201,32 @@ def eval_scan_status(exit_code: int, error_at_manifest_scan: bool) -> str:
     return status
 
 
+def convert_json_to_csv(scan_results: dict, csv_filepath: str = None) -> str:
+    """
+    Converts scan results JSON to CSV format using pandas
+    :param scan_results: Dictionary with scan results
+    :param csv_filepath: Optional filepath to save CSV. If None, returns CSV string
+    :return: CSV formatted string or filepath if saved
+    """
+    # Convert dictionary to DataFrame (single row)
+    # For list values, convert to string representation
+    flattened_data = {}
+    for key, value in scan_results.items():
+        if isinstance(value, list):
+            # Convert list to semicolon-separated string for CSV
+            flattened_data[key] = ";".join(str(item) for item in value)
+        else:
+            flattened_data[key] = value
+    
+    df = pd.DataFrame([flattened_data])
+    
+    if csv_filepath:
+        df.to_csv(csv_filepath, index=False)
+        return csv_filepath
+    else:
+        return df.to_csv(index=False)
+
+
 def eval_cli_metadata(metadata_json) -> dict:
     """
     Evaluates raw cli analytics metadata json and formats required info into a dictionary
@@ -250,6 +277,10 @@ if __name__ == "__main__":
         # prints a pretty summary json
         ms_json = json.dumps(metadata_summary, indent=2)
         print(ms_json)
+        # convert to CSV and print
+        csv_output = convert_json_to_csv(metadata_summary)
+        print("\n--- CSV Format ---")
+        print(csv_output)
     else:
         print(f"Error at retrieving cli scan metadata line")
         sys.exit(1)
